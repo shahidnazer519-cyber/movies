@@ -1,53 +1,27 @@
-name: AI Video Automation Pipeline
-
-on:
-  # 🚀 فوری آٹو ٹریگر: جیسے ہی 'videos/' میں کوئی ویڈیو آئے، بوٹ اسی وقت چل پڑے
-  push:
-    paths:
-      - 'videos/**'
-  # 🕒 روزانہ کا شیڈول: بیک اپ کے طور پر روزانہ چیک کرے
-  schedule:
-    - cron: '0 12 * * *'
-  # 🔘 مینول بٹن: گِٹ ہب پیج سے کسی بھی وقت مینوئلی رن کرنے کے لیے
-  workflow_dispatch:
-
+name: Video Auto Upload
+on: [push, workflow_dispatch]
 jobs:
-  process-and-upload:
+  run-script:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🐍 Set up Python
+      - uses: actions/checkout@v4
+      - name: Setup Python
         uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: 🎥 Install FFmpeg & OpenCV System Dependencies
+        with: {python-version: '3.10'}
+      - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libgl1 libglib2.0-0
-
-      - name: 📦 Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
+          sudo apt-get update && sudo apt-get install -y ffmpeg libgl1
           pip install requests google-generativeai opencv-python-headless Pillow ffmpeg-python
-          pip install -r requirements.txt || echo "requirements checked"
-
-      - name: 🤖 Run AI Automation Script
+      - name: Run Script
         env:
           MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python script.py
-
-      - name: 💾 Update History & Clean Storage
+      - name: Push Changes
         run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
+          git config --global user.name "Bot"
+          git config --global user.email "bot@bot.com"
           git add -A
-          git commit -m "🤖 Auto-processed: uploaded via AI, updated history & cleaned storage" || echo "No changes to commit"
-          git pull origin main --rebase || git pull origin main
+          git commit -m "Auto Cleanup" || echo "No changes"
+          git pull --rebase
           git push
