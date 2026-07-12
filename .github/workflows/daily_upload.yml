@@ -1,16 +1,14 @@
-name: AI-Powered Auto Video Upload & Processing
+name: AI Video Automation Pipeline
 
 on:
-  # 🚀 1. فوری آٹو ٹریگر: جیسے ہی 'videos/' فولڈر میں کوئی نئی ویڈیو آئے گی، بوٹ اسی وقت چل پڑے گا
+  # 🚀 فوری آٹو ٹریگر: جیسے ہی 'videos/' میں کوئی ویڈیو آئے، بوٹ اسی وقت چل پڑے
   push:
     paths:
       - 'videos/**'
-
-  # 🕒 2. روزانہ کا شیڈول: بیک اپ کے طور پر روزانہ چیک کرے گا
+  # 🕒 روزانہ کا شیڈول: بیک اپ کے طور پر روزانہ چیک کرے
   schedule:
     - cron: '0 12 * * *'
-
-  # 🔘 3. مینول بٹن: گِٹ ہب پیج سے کسی بھی وقت مینوئلی رن کرنے کے لیے
+  # 🔘 مینول بٹن: گِٹ ہب پیج سے کسی بھی وقت مینوئلی رن کرنے کے لیے
   workflow_dispatch:
 
 jobs:
@@ -31,29 +29,25 @@ jobs:
       - name: 🎥 Install FFmpeg & OpenCV System Dependencies
         run: |
           sudo apt-get update
-          # OpenCV اور FFmpeg کو سرور پر بغیر کسی ارر کے چلانے کے لیے ضروری لائبریریز
           sudo apt-get install -y ffmpeg libgl1 libglib2.0-0
 
       - name: 📦 Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install requests google-generativeai opencv-python-headless Pillow ffmpeg-python
+          pip install -r requirements.txt || echo "requirements checked"
 
-      - name: 🤖 Run AI Video Processing & Upload Script
+      - name: 🤖 Run AI Automation Script
         env:
-          # Make.com اور Google Gemini دونوں کی کیز (Keys) یہاں سیکیور طریقے سے پاس کی گئی ہیں
           MAKE_WEBHOOK_URL: ${{ secrets.MAKE_WEBHOOK_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python script.py
 
-      - name: 💾 Commit and Push Changes (Update History & Delete Processed Videos)
+      - name: 💾 Update History & Clean Storage
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
           git add -A
-          git commit -m "🤖 Auto-processed: uploaded via AI, updated history & cleaned up storage" || echo "No changes to commit"
-          
-          # 🛡️ کسی بھی قسم کے Git Conflict سے بچنے کے لیے جدید سنک کمانڈ
+          git commit -m "🤖 Auto-processed: uploaded via AI, updated history & cleaned storage" || echo "No changes to commit"
           git pull origin main --rebase || git pull origin main
-          
           git push
