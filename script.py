@@ -38,21 +38,19 @@ def process_video(input_path, output_path):
     print(f"🎬 Processing & Applying Anti-Copyright Filters: {input_path}")
     
     # ─── ADVANCED FFMPEG ANTI-COPYRIGHT COMMAND ───
-    # 1. -map_metadata -1: پرانا تمام خفیہ میٹا ڈیٹا اور ہیش ڈیلیٹ کرنا
-    # 2. eq=...: کلرز اور کنٹراسٹ میں 1% سے 2% باریک تبدیلی (جو انسان کو محسوس نہیں ہوگی لیکن بوٹس کے لیے ویڈیو نئی بن جائے گی)
-    # 3. واٹرمارک ریپلیسمنٹ: 'Explain with Arifa' کو چھپا کر 'Explain With Ali' لگانا
+    # drawtext میں 'ih' کی جگہ 'h' کر دیا گیا ہے تاکہ ارر نہ آئے
     cmd = [
         'ffmpeg', '-y', '-i', input_path,
-        '-map_metadata', '-1',  # 🛡️ تمام پرانا میٹا ڈیٹا اور ہیش اڑا دیں
+        '-map_metadata', '-1',  # 🛡️ تمام پرانا میٹا ڈیٹا اور ہیش ڈیلیٹ
         '-vf', (
-            "scale=720:-2, "                                                    # سائز کنٹرول
-            "eq=contrast=1.02:brightness=0.01:saturation=1.02, "                # 🛡️ کلر گریڈنگ (Visual Footprint Change)
-            "drawbox=y=ih*0.53:h=60:color=black@0.7:t=fill, "                   # پرانا لوگو کور کرنا
-            "drawtext=text='Explain With Ali':fontcolor=white:fontsize=22:"     # نیا برانڈ نیم
-            "x=(w-text_w)/2:y=ih*0.545"
+            "scale=720:-2, "
+            "eq=contrast=1.02:brightness=0.01:saturation=1.02, "
+            "drawbox=y=ih*0.53:h=60:color=black@0.7:t=fill, "
+            "drawtext=text='Explain With Ali':fontcolor=white:fontsize=22:"
+            "x=(w-text_w)/2:y=h*0.545"  # <--- یہاں 'ih' کو 'h' کر دیا گیا ہے
         ),
         '-c:v', 'libx264', '-crf', '28', '-preset', 'faster',
-        '-c:a', 'aac', '-b:a', '128k',                                          # 🛡️ آڈیو دوبارہ انکوڈ کر کے فٹ پرنٹ بدلنا
+        '-c:a', 'aac', '-b:a', '128k',
         output_path
     ]
     
