@@ -1,0 +1,44 @@
+name: Auto Upload Daily
+on:
+  workflow_dispatch: # یہ مینوئل رن اور cron-job.org کے بیرونی سگنل دونوں کے لیے کام کرے گا
+
+# گٹ ہب ایکشن کو فائلیں ڈیلیٹ اور اپڈیٹ کرنے کی مکمل اجازت (403 Error Fix)
+permissions:
+  contents: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install Dependencies & FFmpeg
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+          
+      - name: Run Automation Script
+        run: python script.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BUFFER_WEBHOOK_URL: ${{ secrets.BUFFER_WEBHOOK_URL }}
+          
+      - name: Commit and Push Changes (Sync Repository)
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          # اگر ہسٹری فائل نہ ہو تو خودکار بنانا تاکہ ایرر نہ آئے
+          touch history.txt  
+          git add history.txt
+          # ویڈیوز کے فولڈر میں ہونے والی تبدیلیوں کو ٹریک کرنا
+          git add -A videos/ || true
+          git commit -m "Auto-update: History logged and processed video removed" || echo "No changes to commit"
+          # پش کرنے سے پہلے سرور کو سنک کرنا تاکہ ریجیکشن کا کوئی چانس نہ رہے
+          git pull --rebase origin main
+          git push
