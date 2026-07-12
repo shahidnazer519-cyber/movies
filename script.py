@@ -13,7 +13,51 @@ PROCESSED_DIR = "processed_videos"
 HISTORY_FILE = "history.txt"
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+
+# ─── SMART AUTO GEMINI MODEL SELECTOR ───
+def get_auto_gemini_model():
+    """
+    یہ فنکشن خودکار طریقے سے چیک کرتا ہے کہ گوگل کا سب سے لیٹسٹ
+    اور تیز ترین ماڈل (3.5, 3.0, 2.5, یا 1.5) کون سا دستیاب ہے اور اسے سلیکٹ کرتا ہے۔
+    """
+    try:
+        # گوگل سرور سے تمام دستیاب ماڈلز کی لسٹ حاصل کریں جو ٹیکسٹ جنریٹ کر سکتے ہیں
+        available_models = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        
+        # لیٹسٹ اور تیز ترین ماڈلز کی ترجیحی لسٹ (Priority List)
+        priority_models = [
+            'models/gemini-3.5-flash',
+            'models/gemini-3.5-pro',
+            'models/gemini-3.0-flash',
+            'models/gemini-2.5-flash',
+            'models/gemini-2.5-pro',
+            'models/gemini-2.0-flash',
+            'models/gemini-1.5-flash',
+            'models/gemini-1.5-pro'
+        ]
+        
+        # جو سب سے لیٹسٹ ماڈل آپ کی کی (Key) پر دستیاب ہو اسے فوراً سلیکٹ کریں
+        for p_model in priority_models:
+            if p_model in available_models:
+                print(f"🤖 Auto-Selected Latest Gemini Model: {p_model}")
+                return genai.GenerativeModel(p_model)
+                
+        # اگر ترجیحی لسٹ میں سے کوئی نہ ملے تو لسٹ کا پہلا دستیاب ماڈل لے لیں
+        if available_models:
+            print(f"🤖 Default Selected Gemini Model: {available_models[0]}")
+            return genai.GenerativeModel(available_models[0])
+            
+    except Exception as e:
+        print(f"⚠️ Model Auto-Selection Warning: {e}. Falling back to default.")
+        
+    # ایمرجنسی فال بیک (اگر انٹرنیٹ یا لسٹنگ میں کوئی مسئلہ ہو)
+    return genai.GenerativeModel("gemini-2.5-flash")
+
+# آٹو ماڈل کو انیشلائز کریں
+model = get_auto_gemini_model()
 
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 os.makedirs(VIDEO_DIR, exist_ok=True)
@@ -44,17 +88,18 @@ def generate_seo_content(title):
     TITLE: [Your Title]
     DESCRIPTION: [Your Description]
     """
-    response = model.generate_content(prompt)
-    text = response.text
     try:
+        response = model.generate_content(prompt)
+        text = response.text
         title_line = text.split("TITLE:")[1].split("DESCRIPTION:")[0].strip()
         desc_line = text.split("DESCRIPTION:")[1].strip()
         return title_line, desc_line
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ AI SEO Generation Error: {e}")
         return title, "Detailed movie explanation with Explain With Ali."
 
 def create_thumbnail(video_path, title, output_thumbnail_path):
-    print(f"Creating thumbnail for: {title}")
+    print(f"🖼️ Creating thumbnail for: {title}")
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames // 2)
@@ -63,7 +108,6 @@ def create_thumbnail(video_path, title, output_thumbnail_path):
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb)
         draw = ImageDraw.Draw(img)
-        # آپ یہاں پر فونٹس کے لیے سسٹم فونٹ کا پاتھ بھی دے سکتے ہیں
         try:
             font = ImageFont.truetype("arial.ttf", 40)
         except IOError:
@@ -107,9 +151,12 @@ def send_to_webhook(video_path, thumbnail_path, title, description):
 
 def handle_error(error_msg):
     print(f"⚠️ An error occurred: {error_msg}")
-    prompt = f"Analyze the following error that occurred during video automation and explain what went wrong and how to fix it:\n\n{error_msg}"
-    response = model.generate_content(prompt)
-    print(f"🤖 Gemini Analysis:\n{response.text}")
+    try:
+        prompt = f"Analyze the following error that occurred during video automation and explain what went wrong and how to fix it in 2-3 short bullet points:\n\n{error_msg}"
+        response = model.generate_content(prompt)
+        print(f"🤖 Gemini AI Error Analysis:\n{response.text}")
+    except Exception as e:
+        print(f"⚠️ Could not generate AI error analysis: {e}")
 
 def main():
     try:
@@ -145,7 +192,7 @@ def main():
                         os.remove(output_path)
                     if os.path.exists(thumbnail_path):
                         os.remove(thumbnail_path)
-                    print(f"🗑️ Deleted local source and files for '{video}' to save storage.")
+                    print(f"🗑️ Cleaned up local files for '{video}' to free storage.")
             except Exception as e:
                 handle_error(str(e))
     except Exception as e:
