@@ -3,7 +3,6 @@ import subprocess
 import requests
 
 # ─── CONFIGURATION ───
-# GitHub Secrets سے ویب ہک یو آر ایل حاصل کیا جائے گا تاکہ سیکیورٹی برقرار رہے
 MAKE_WEBHOOK_URL = os.environ.get("MAKE_WEBHOOK_URL", "YOUR_MAKE_COM_WEBHOOK_URL_HERE")
 VIDEO_DIR = "videos"
 PROCESSED_DIR = "processed_videos"
@@ -23,13 +22,11 @@ def save_to_history(filename):
 
 def clean_title(filename):
     """
-    ویڈیو کے نام سے رینڈم آئی ڈی (جیسے _uCgNzPk) ہٹا کر 
-    ایک بہترین ایس ای او فرینڈلی ٹائٹل بناتا ہے۔
+    ویڈیو کے نام سے رینڈم آئی ڈی ہٹا کر ایس ای او فرینڈلی ٹائٹل بناتا ہے۔
     """
     name, _ = os.path.splitext(filename)
     parts = name.split('_')
     
-    # اگر آخر میں 6 یا اس سے زیادہ حروف کی رینڈم آئی ڈی ہو تو اسے ہٹا دیں
     if len(parts) > 1 and len(parts[-1]) >= 6:
         name = " ".join(parts[:-1])
     else:
@@ -38,25 +35,29 @@ def clean_title(filename):
     return name.strip().title()
 
 def process_video(input_path, output_path):
-    print(f"🎬 Processing Video: {input_path}")
+    print(f"🎬 Processing & Applying Anti-Copyright Filters: {input_path}")
     
-    # FFmpeg: پرانے ٹیکسٹ کو بلیک باکس سے کور کر کے نیا صاف ستھرا واٹرمارک لگانا
-    # اور سائز کو Make.com کی لیمٹ کے مطابق آپٹمائز (720p & CRF 28) کرنا
+    # ─── ADVANCED FFMPEG ANTI-COPYRIGHT COMMAND ───
+    # 1. -map_metadata -1: پرانا تمام خفیہ میٹا ڈیٹا اور ہیش ڈیلیٹ کرنا
+    # 2. eq=...: کلرز اور کنٹراسٹ میں 1% سے 2% باریک تبدیلی (جو انسان کو محسوس نہیں ہوگی لیکن بوٹس کے لیے ویڈیو نئی بن جائے گی)
+    # 3. واٹرمارک ریپلیسمنٹ: 'Explain with Arifa' کو چھپا کر 'Explain With Ali' لگانا
     cmd = [
         'ffmpeg', '-y', '-i', input_path,
+        '-map_metadata', '-1',  # 🛡️ تمام پرانا میٹا ڈیٹا اور ہیش اڑا دیں
         '-vf', (
-            "scale=720:-2, "
-            "drawbox=y=ih*0.53:h=60:color=black@0.7:t=fill, "
-            "drawtext=text='Explain With Ali':fontcolor=white:fontsize=22:"
+            "scale=720:-2, "                                                    # سائز کنٹرول
+            "eq=contrast=1.02:brightness=0.01:saturation=1.02, "                # 🛡️ کلر گریڈنگ (Visual Footprint Change)
+            "drawbox=y=ih*0.53:h=60:color=black@0.7:t=fill, "                   # پرانا لوگو کور کرنا
+            "drawtext=text='Explain With Ali':fontcolor=white:fontsize=22:"     # نیا برانڈ نیم
             "x=(w-text_w)/2:y=ih*0.545"
         ),
         '-c:v', 'libx264', '-crf', '28', '-preset', 'faster',
-        '-c:a', 'aac', '-b:a', '128k',
+        '-c:a', 'aac', '-b:a', '128k',                                          # 🛡️ آڈیو دوبارہ انکوڈ کر کے فٹ پرنٹ بدلنا
         output_path
     ]
     
     subprocess.run(cmd, check=True)
-    print(f"✅ Finished Processing: {output_path}")
+    print(f"✅ Finished Processing (Copyright Protected): {output_path}")
 
 def send_to_webhook(video_path, title):
     print(f"🚀 Sending via Webhook to Make.com: {title}")
@@ -110,7 +111,7 @@ def main():
         output_path = os.path.join(PROCESSED_DIR, f"processed_{video}")
         
         try:
-            # 1. ویڈیو ایڈٹ اور کمپریس کریں
+            # 1. ویڈیو ایڈٹ، کلر چینج اور کمپریس کریں
             process_video(input_path, output_path)
             
             # 2. کلین ایس ای او ٹائٹل بنائیں
